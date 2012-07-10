@@ -15,11 +15,11 @@
  */
 
 class Zendesk_API {
-	public $agent_email    = ZENDESK_EMAIL;
-	public $agent_password = ZENDESK_PASSWORD;
-	public $agent_token = ZENDESK_TOKEN;
+	public $agent_email    = 'pro@gigaom.com/token';
+	public $agent_password = '';
+	public $agent_token = 'fTxdMjA9nPbLZmTDSYl8zCYCtDdFJL9MYei00x9o';
 
-	public $zendesk_url    = ZENDESK_URL;
+	public $zendesk_url    = 'https://gigaom.zendesk.com/api/v2/';
 
 
 	/**
@@ -50,7 +50,7 @@ class Zendesk_API {
 		// http://core.trac.wordpress.org/ticket/17923
 		$args = array_map( 'rawurlencode', $args );
 		$result = wp_remote_get( add_query_arg( $args, $this->zendesk_url . $path . '.json' ), $this->get_remote_args( $remote_args ) );
-var_dump($result);
+
 		if ( is_wp_error( $result ) )
 			return $result;
 
@@ -61,24 +61,21 @@ var_dump($result);
 	}
 
 	public function do_api_write_request( $path, $data, $remote_args = array() ) {
-		// Generate the XML
-		$dom = new DOMDocument( '1.0', 'UTF-8' );
-		$child = $this->generate_xml_element( $dom, $data );
-		if ( ! $child )
-			return new WP_Error( 'zendesk_badxmldata', __( 'Bad XML data' ) );
-		$dom->appendChild( $child );
-		$entry->formatOutput = true;
-		$xml = $dom->saveXML();
+		$args = array_map( 'rawurlencode' , $args );
+		
+		//man, I love JSON
+		$json = json_encode( $data );
 
-		$remote_args = wp_parse_args( $remote_args, array(
+		$remote_args = wp_parse_args( $remote_args, array( 
 			'method' => 'POST',
-			'headers' => array(
-				'Content-Type' => 'application/xml',
+			'headers' => array( 
+				'Accept' => 'application/json', //http://developer.zendesk.com/documentation/rest_api/introduction.html#headers
+				'Content-Type' => 'application/json',
 			),
-			'body' => $xml,
+			'body' => $json,
 		) );
-
-		return wp_remote_request( $this->zendesk_url . $path . '.xml', $this->get_remote_args( $remote_args ) );
+		
+		return wp_remote_request( $this->zendesk_url . $path . '.json', $this->get_remote_args( $remote_args ) );
 	}
 
 	public function get_result_id ( $request ) {
@@ -131,6 +128,18 @@ var_dump($result);
 			return false;
 
 		return $this->get_result_id( $result );
+	}
+
+	public function create_ticket( $remote_args = array() )
+	{
+		$data = array(
+			'ticket' => array(
+				'subject' => 'TEST REST API I LOVE CAPS!!!',
+				'description' => 'I am a ticket created with the v2 REST API! Yay!',
+			),
+		);
+		
+		return $this->create( 'tickets', $data );
 	}
 
 	public function update( $path, $data, $remote_args = array() ) {
