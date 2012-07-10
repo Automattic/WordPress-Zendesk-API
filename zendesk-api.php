@@ -15,11 +15,9 @@
  */
 
 class Zendesk_API {
-	public $agent_email    = 'pro@gigaom.com/token';
-	public $agent_password = '';
-	public $agent_token = 'fTxdMjA9nPbLZmTDSYl8zCYCtDdFJL9MYei00x9o';
-
-	public $zendesk_url    = 'https://gigaom.zendesk.com/api/v2/';
+	public $agent_email = ZENDESK_EMAIL;
+	public $agent_token = ZENDESK_TOKEN;
+	public $zendesk_url = ZENDESK_URL;
 
 
 	/**
@@ -74,7 +72,6 @@ class Zendesk_API {
 			),
 			'body' => $json,
 		) );
-		
 		return wp_remote_request( $this->zendesk_url . $path . '.json', $this->get_remote_args( $remote_args ) );
 	}
 
