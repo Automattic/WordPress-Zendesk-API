@@ -127,16 +127,12 @@ class Zendesk_API {
 		return $this->get_result_id( $result );
 	}
 
-	public function create_ticket( $remote_args = array() )
+	public function create_ticket( $data = array() )
 	{
-		$data = array(
-			'ticket' => array(
-				'subject' => 'TEST REST API I LOVE CAPS!!!',
-				'description' => 'I am a ticket created with the v2 REST API! Yay!',
-			),
-		);
-		
-		return $this->create( 'tickets', $data );
+		if( empty( $data ) )
+			return false;
+
+		return $this->create( 'tickets', array( 'ticket' => $data ) );
 	}
 
 	public function update( $path, $data, $remote_args = array() ) {
