@@ -5,13 +5,19 @@
  * 
  * This class is in serious need of documentation.
  * You'll have to figure it out for yourself meanwhile.
+ * Plugin Name: Zendesk v2 API for WordPress
+ * Plugin URI: http://about.scriblio.net/
+ * Version: 0.2
+ * Credit goes to Viper007Bond for writing this against the v1 API, only to have
+ * Zendesk cruelly deprecate it away mere months after this plugin's birth
+ *
+ * Author: Alex Mills (Viper007Bond), Vasken Hauri (brandwaffle)
  */
 
 class Zendesk_API {
-	public $agent_email    = ZENDESK_LOGIN_EMAIL;
-	public $agent_password = ZENDESK_LOGIN_PASSWORD;
-
-	public $zendesk_url    = ZENDESK_URL;
+	public $agent_email = ZENDESK_EMAIL;
+	public $agent_token = ZENDESK_TOKEN;
+	public $zendesk_url = ZENDESK_URL;
 
 
 	/**
@@ -30,7 +36,7 @@ class Zendesk_API {
 		// Merge headers rather than using defaults
 		$args['headers'] = array_merge(
 			array(
-				'Authorization' => 'Basic ' . base64_encode( $this->agent_email . ':' . $this->agent_password ),
+				'Authorization' => 'Basic ' . base64_encode( $this->agent_email . ':' . $this->agent_token ),
 			),
 			$extra_headers
 		);
@@ -41,7 +47,6 @@ class Zendesk_API {
 	public function do_api_read_request( $path, $args = array(), $remote_args = array() ) {
 		// http://core.trac.wordpress.org/ticket/17923
 		$args = array_map( 'rawurlencode', $args );
-
 		$result = wp_remote_get( add_query_arg( $args, $this->zendesk_url . $path . '.json' ), $this->get_remote_args( $remote_args ) );
 
 		if ( is_wp_error( $result ) )
@@ -54,24 +59,20 @@ class Zendesk_API {
 	}
 
 	public function do_api_write_request( $path, $data, $remote_args = array() ) {
-		// Generate the XML
-		$dom = new DOMDocument( '1.0', 'UTF-8' );
-		$child = $this->generate_xml_element( $dom, $data );
-		if ( ! $child )
-			return new WP_Error( 'zendesk_badxmldata', __( 'Bad XML data' ) );
-		$dom->appendChild( $child );
-		$entry->formatOutput = true;
-		$xml = $dom->saveXML();
+		$args = array_map( 'rawurlencode' , $args );
+		
+		//man, I love JSON
+		$json = json_encode( $data );
 
-		$remote_args = wp_parse_args( $remote_args, array(
+		$remote_args = wp_parse_args( $remote_args, array( 
 			'method' => 'POST',
-			'headers' => array(
-				'Content-Type' => 'application/xml',
+			'headers' => array( 
+				'Accept' => 'application/json', //http://developer.zendesk.com/documentation/rest_api/introduction.html#headers
+				'Content-Type' => 'application/json',
 			),
-			'body' => $xml,
+			'body' => $json,
 		) );
-
-		return wp_remote_request( $this->zendesk_url . $path . '.xml', $this->get_remote_args( $remote_args ) );
+		return wp_remote_request( $this->zendesk_url . $path . '.json', $this->get_remote_args( $remote_args ) );
 	}
 
 	public function get_result_id ( $request ) {
@@ -124,6 +125,14 @@ class Zendesk_API {
 			return false;
 
 		return $this->get_result_id( $result );
+	}
+
+	public function create_ticket( $data = array() )
+	{
+		if( empty( $data ) )
+			return false;
+
+		return $this->create( 'tickets', array( 'ticket' => $data ) );
 	}
 
 	public function update( $path, $data, $remote_args = array() ) {
@@ -259,7 +268,8 @@ class Zendesk_API {
 
 	public function get_tickets_for_user( $email, $args = array() ) {
 		// http://www.zendesk.com/support/api/rest-introduction/#behalf
-		$remote_args['headers']['X-On-Behalf-Of'] = $email;
+		//feature from v1 API, now deprecated in favor of tokenized auth
+		//$remote_args['headers']['X-On-Behalf-Of'] = $email;
 
 		// First try to get all tickets from their organization
 		$result = $this->get( 'organization_requests', $args, 15, $remote_args );
@@ -267,7 +277,7 @@ class Zendesk_API {
 		// If that fails, then that means they aren't a part of a shared organization
 		// Fall back to just getting all of their personal tickets
 		if ( false === $result )
-			$result = $this->get( 'requests', $args, 15, $remote_args );
+			$result = $this->get( 'tickets', $args, 15, $remote_args );
 
 		return $result;
 	}
